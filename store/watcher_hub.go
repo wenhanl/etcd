@@ -39,21 +39,21 @@ func newWatchHub(capacity int) *watcherHub {
 // If recursive is false, the first change after index at key will be sent to the event channel of the watcher.
 // If index is zero, watch will start from the current index + 1.
 func (wh *watcherHub) watch(key string, recursive, stream bool, index uint64) (*Watcher, *etcdErr.Error) {
-	event, err := wh.EventHistory.scan(key, recursive, index)
+	events, err := wh.EventHistory.scan(key, recursive, index)
 
 	if err != nil {
 		return nil, err
 	}
 
 	w := &Watcher{
-		EventChan:  make(chan *Event, 1), // use a buffered channel
+		EventChan:  make(chan interface{}, 1), // use a buffered channel
 		recursive:  recursive,
 		stream:     stream,
 		sinceIndex: index,
 	}
 
-	if event != nil {
-		w.EventChan <- event
+	if events != nil {
+		w.EventChan <- events
 		return w, nil
 	}
 

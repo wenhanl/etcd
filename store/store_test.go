@@ -493,8 +493,9 @@ func TestStoreWatchCreate(t *testing.T) {
 	c := w.EventChan
 	s.Create("/foo", false, "bar", false, Permanent)
 	e := nbselect(c)
-	assert.Equal(t, e.Action, "create", "")
-	assert.Equal(t, e.Node.Key, "/foo", "")
+	event := e.(*Event)
+	assert.Equal(t, event.Action, "create", "")
+	assert.Equal(t, event.Node.Key, "/foo", "")
 	e = nbselect(c)
 	assert.Nil(t, e, "")
 }
@@ -504,7 +505,7 @@ func TestStoreWatchRecursiveCreate(t *testing.T) {
 	s := newStore()
 	w, _ := s.Watch("/foo", true, false, 0)
 	s.Create("/foo/bar", false, "baz", false, Permanent)
-	e := nbselect(w.EventChan)
+	e := nbselect(w.EventChan).(*Event)
 	assert.Equal(t, e.Action, "create", "")
 	assert.Equal(t, e.Node.Key, "/foo/bar", "")
 }
@@ -515,7 +516,7 @@ func TestStoreWatchUpdate(t *testing.T) {
 	s.Create("/foo", false, "bar", false, Permanent)
 	w, _ := s.Watch("/foo", false, false, 0)
 	s.Update("/foo", "baz", Permanent)
-	e := nbselect(w.EventChan)
+	e := nbselect(w.EventChan).(*Event)
 	assert.Equal(t, e.Action, "update", "")
 	assert.Equal(t, e.Node.Key, "/foo", "")
 }
@@ -526,7 +527,7 @@ func TestStoreWatchRecursiveUpdate(t *testing.T) {
 	s.Create("/foo/bar", false, "baz", false, Permanent)
 	w, _ := s.Watch("/foo", true, false, 0)
 	s.Update("/foo/bar", "baz", Permanent)
-	e := nbselect(w.EventChan)
+	e := nbselect(w.EventChan).(*Event)
 	assert.Equal(t, e.Action, "update", "")
 	assert.Equal(t, e.Node.Key, "/foo/bar", "")
 }
@@ -537,7 +538,7 @@ func TestStoreWatchDelete(t *testing.T) {
 	s.Create("/foo", false, "bar", false, Permanent)
 	w, _ := s.Watch("/foo", false, false, 0)
 	s.Delete("/foo", false, false)
-	e := nbselect(w.EventChan)
+	e := nbselect(w.EventChan).(*Event)
 	assert.Equal(t, e.Action, "delete", "")
 	assert.Equal(t, e.Node.Key, "/foo", "")
 }
@@ -548,7 +549,7 @@ func TestStoreWatchRecursiveDelete(t *testing.T) {
 	s.Create("/foo/bar", false, "baz", false, Permanent)
 	w, _ := s.Watch("/foo", true, false, 0)
 	s.Delete("/foo/bar", false, false)
-	e := nbselect(w.EventChan)
+	e := nbselect(w.EventChan).(*Event)
 	assert.Equal(t, e.Action, "delete", "")
 	assert.Equal(t, e.Node.Key, "/foo/bar", "")
 }
@@ -559,7 +560,7 @@ func TestStoreWatchCompareAndSwap(t *testing.T) {
 	s.Create("/foo", false, "bar", false, Permanent)
 	w, _ := s.Watch("/foo", false, false, 0)
 	s.CompareAndSwap("/foo", "bar", 0, "baz", Permanent)
-	e := nbselect(w.EventChan)
+	e := nbselect(w.EventChan).(*Event)
 	assert.Equal(t, e.Action, "compareAndSwap", "")
 	assert.Equal(t, e.Node.Key, "/foo", "")
 }
@@ -570,7 +571,7 @@ func TestStoreWatchRecursiveCompareAndSwap(t *testing.T) {
 	s.Create("/foo/bar", false, "baz", false, Permanent)
 	w, _ := s.Watch("/foo", true, false, 0)
 	s.CompareAndSwap("/foo/bar", "baz", 0, "bat", Permanent)
-	e := nbselect(w.EventChan)
+	e := nbselect(w.EventChan).(*Event)
 	assert.Equal(t, e.Action, "compareAndSwap", "")
 	assert.Equal(t, e.Node.Key, "/foo/bar", "")
 }
@@ -590,16 +591,17 @@ func TestStoreWatchExpire(t *testing.T) {
 
 	w, _ := s.Watch("/", true, false, 0)
 	c := w.EventChan
-	e := nbselect(c)
+	e, _ := nbselect(c).(*Event)
 	assert.Nil(t, e, "")
 	time.Sleep(600 * time.Millisecond)
-	e = nbselect(c)
+	e, _ = nbselect(c).(*Event)
 	assert.Equal(t, e.Action, "expire", "")
 	assert.Equal(t, e.Node.Key, "/foo", "")
+
 	w, _ = s.Watch("/", true, false, 4)
-	e = nbselect(w.EventChan)
-	assert.Equal(t, e.Action, "expire", "")
-	assert.Equal(t, e.Node.Key, "/foofoo", "")
+	events := nbselect(w.EventChan).([]*Event)
+	assert.Equal(t, events[0].Action, "expire", "")
+	assert.Equal(t, events[0].Node.Key, "/foofoo", "")
 }
 
 // Ensure that the store can watch in streaming mode.
@@ -608,19 +610,20 @@ func TestStoreWatchStream(t *testing.T) {
 	w, _ := s.Watch("/foo", false, true, 0)
 	// first modification
 	s.Create("/foo", false, "bar", false, Permanent)
-	e := nbselect(w.EventChan)
+
+	e, _ := nbselect(w.EventChan).(*Event)
 	assert.Equal(t, e.Action, "create", "")
 	assert.Equal(t, e.Node.Key, "/foo", "")
 	assert.Equal(t, e.Node.Value, "bar", "")
-	e = nbselect(w.EventChan)
+	e, _ = nbselect(w.EventChan).(*Event)
 	assert.Nil(t, e, "")
 	// second modification
 	s.Update("/foo", "baz", Permanent)
-	e = nbselect(w.EventChan)
+	e = nbselect(w.EventChan).(*Event)
 	assert.Equal(t, e.Action, "update", "")
 	assert.Equal(t, e.Node.Key, "/foo", "")
 	assert.Equal(t, e.Node.Value, "baz", "")
-	e = nbselect(w.EventChan)
+	e, _ = nbselect(w.EventChan).(*Event)
 	assert.Nil(t, e, "")
 }
 
@@ -683,7 +686,7 @@ func TestStoreRecoverWithExpiration(t *testing.T) {
 }
 
 // Performs a non-blocking select on an event channel.
-func nbselect(c <-chan *Event) *Event {
+func nbselect(c <-chan interface{}) interface{} {
 	select {
 	case e := <-c:
 		return e

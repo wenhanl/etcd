@@ -41,24 +41,38 @@ func TestScanHistory(t *testing.T) {
 	eh.addEvent(newEvent(Create, "/foo/bar/bar", 4, 4))
 	eh.addEvent(newEvent(Create, "/foo/foo/foo", 5, 5))
 
+	// Set some key
+	eh.addEvent(newEvent(Set, "/foo", 6, 6))
+	eh.addEvent(newEvent(Set, "/foo/foo", 7, 7))
+
+	//init test slice
+	var valid = true
+
 	e, err := eh.scan("/foo", false, 1)
-	if err != nil || e.Index() != 1 {
-		t.Fatalf("scan error [/foo] [1] %v", e.Index)
+	valid = e[0].Index() == 1 && e[1].Index() == 6
+	if err != nil || !valid {
+		t.Fatalf("scan error [/foo] [1] %v", e[1].Index())
+	}
+
+	e, err = eh.scan("/foo/foo", false, 1)
+	valid = e[0].Index() == 3 && e[1].Index() == 7
+	if err != nil || !valid {
+		t.Fatalf("scan error [/foo/foo] [2] %v", e[0].Index())
 	}
 
 	e, err = eh.scan("/foo/bar", false, 1)
-
-	if err != nil || e.Index() != 2 {
-		t.Fatalf("scan error [/foo/bar] [2] %v", e.Index)
+	valid = e[0].Index() == 2
+	if err != nil || !valid {
+		t.Fatalf("scan error [/foo/bar] [2] %v", e[0].Index())
 	}
 
-	e, err = eh.scan("/foo/bar", true, 3)
-
-	if err != nil || e.Index() != 4 {
-		t.Fatalf("scan error [/foo/bar/bar] [4] %v", e.Index)
+	e, err = eh.scan("/foo/foo", true, 1)
+	valid = e[0].Index() == 3 && e[1].Index() == 5 && e[2].Index() == 7
+	if err != nil || !valid {
+		t.Fatalf("scan error [/foo/foo] [1] recurisive %v", e[0].Index())
 	}
 
-	e, err = eh.scan("/foo/bar", true, 6)
+	e, err = eh.scan("/foo/bar", true, 8)
 
 	if e != nil {
 		t.Fatalf("bad index shoud reuturn nil")
@@ -76,7 +90,10 @@ func TestFullEventQueue(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		e := newEvent(Create, "/foo", uint64(i), uint64(i))
 		eh.addEvent(e)
-		e, err := eh.scan("/foo", true, uint64(i-1))
+		events, err := eh.scan("/foo", true, uint64(i-1))
+		if len(events) != 0 {
+			e = events[0]
+		}
 		if i > 0 {
 			if e == nil || err != nil {
 				t.Fatalf("scan error [/foo] [%v] %v", i-1, i)

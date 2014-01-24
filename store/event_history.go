@@ -41,7 +41,7 @@ func (eh *EventHistory) addEvent(e *Event) *Event {
 
 // scan enumerates events from the index history and stops at the first point
 // where the key matches.
-func (eh *EventHistory) scan(key string, recursive bool, index uint64) (*Event, *etcdErr.Error) {
+func (eh *EventHistory) scan(key string, recursive bool, index uint64) ([]*Event, *etcdErr.Error) {
 	eh.rwl.RLock()
 	defer eh.rwl.RUnlock()
 
@@ -60,6 +60,7 @@ func (eh *EventHistory) scan(key string, recursive bool, index uint64) (*Event, 
 
 	offset := index - eh.StartIndex
 	i := (eh.Queue.Front + int(offset)) % eh.Queue.Capacity
+	events := []*Event{}
 
 	for {
 		e := eh.Queue.Events[i]
@@ -77,12 +78,16 @@ func (eh *EventHistory) scan(key string, recursive bool, index uint64) (*Event, 
 		}
 
 		if ok {
-			return e, nil
+			//return e, nil
+			events = append(events, e)
 		}
 
 		i = (i + 1) % eh.Queue.Capacity
 
 		if i == eh.Queue.Back {
+			if len(events) != 0 {
+				return events, nil
+			}
 			return nil, nil
 		}
 	}

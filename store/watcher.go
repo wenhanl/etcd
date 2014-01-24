@@ -17,7 +17,7 @@ limitations under the License.
 package store
 
 type Watcher struct {
-	EventChan  chan *Event
+	EventChan  chan interface{}
 	stream     bool
 	recursive  bool
 	sinceIndex uint64
